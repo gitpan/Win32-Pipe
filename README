@@ -1,0 +1,319 @@
+
+
+        +==========================================================+
+        |                                                          |
+        |          Named Pipe extension for Win32 Perl             |
+        |                                                          |
+        |              -----------------------------               |
+        |                                                          |
+        |              by Dave Roth <rothd@roth.net>               |
+        |                                                          |
+        |                                                          |
+        | Copyright (c) 1996-1999 Dave Roth.                       |
+        | All rights reserved.                                     |
+        | Courtesy of Roth Consulting                              |
+        | http://www.roth.net/consult/                             |
+        |                                                          |
+        +==========================================================+
+
+
+
+Following in tradition...
+                 ********************************************
+                *                                            *
+                *    Use under GNU General Public License    *
+                *                                            *
+                *          Details can be found at:          *
+                *    http://www.gnu.org/copyleft/gpl.html    *
+                *                                            *
+                 ********************************************
+
+        ----------------------------------------------------------------
+NOTICE: I do not guarantee ANYTHING with this package. If you use it you
+        are doing so AT YOUR OWN RISK! I may or may not support this
+        depending on my time schedule.
+        ----------------------------------------------------------------
+        
+        
+    
+BENEFITS
+    What is the deal with this?
+    - This will allow you to create, connect to, read from, write to and
+      manage named pipes on the Win32 platform.
+    - You can peek ahead in the pipe before reading data.
+    - The default buffer size is 512 bytes, this can be altered by the
+      ResizeBuffer(xxx) method.
+    - You may create as many named pipes as you want (uh, well, as many
+      as your resources will allow).
+    - Security can be specified when you create a pipe (by using either
+      Win32::Perms or specifying an absolute Security Descriptor.
+
+KNOWN PROBLEMS:
+    What known problems does this thing have?
+    - All pipes are blocking. There are no async callbacks or threads to
+      handle overlapping io.
+    - Currently there is a limit of 256 instances of a named pipe (once a
+      pipe is created you can have 256 client/server connections to that name).
+    - If someone is waiting on a Read() and the other end terminates then
+      you will wait for one REALLY long time! (if anyone has an idea on how
+      I can detect the termination of the other end let me know!)
+
+
+HOW TO INSTALL:
+    - IF you are using Perl 5.005 (either ActivePerl or core with PERL_OBJECT enabled):
+        a) Install via the Perl Package Manager (ppm.pl that comes with Perl 5.005):
+            perl ppm.pl install http://www.roth.net/perl/packages/win32-pipe.ppd
+
+    - IF you are using the ActiveState version of Win32 Perl:
+        a) Copy the PIPE.PM file into the directory perl\lib\win32\
+        b) Rename the file PIPE_XXX.PLL to PIPE.PLL
+        c) Make a directory: perl\lib\auto\win32\pipe\
+        d) Copy the PIPE.PLL file into the directory in step c
+
+    - IF you are using the core distribution of Win32 Perl:
+        a) Copy the PIPE.PM file into the directory perl\lib\site\win32\
+        b) Rename the file PIPE_CORE.DLL to PIPE.DLL
+        c) Make a directory: perl\lib\site\auto\win32\PIPE\
+        d) Copy the PIPE.DLL file into the directory in step c
+
+    That is it!
+
+
+
+
+PARSE EXCEPTIONS:
+    If you are lucky enough to get a parse exception when you use this
+    extension then that means that the particular build of this extension is
+    not compatible with your build of Win32 Perl. What you need to do is
+    download a compatible build of the extension from our FTP site.
+    The way you do this is first discovering your Win32 Perl build by using
+    the following command:
+        perl -v
+    There will be a build number listed. Next download the updated version
+    of this extension for that build number. You will need the one which
+    either matches your build number or is the closest smaller build number.
+    For example there are builds for 307 and 311. If you are using Win32 Perl
+    build 313 you would download the extension built for 311 (since 311 and
+    313 are compatible). However if you have Win32 Perl build 310 you would
+    download the 307 build (builds 307 - 310 are all compatible).
+
+    Crazy, eh? I am hoping that the builds will cease to change the way
+    extensions are managed so we don't have this build breaking anymore. :)
+
+HOW TO TEST:
+    This package comes equiped with three test files:
+      1) TEST.BAT
+      2) TESTSR.PL
+      3) TESTCL.PL
+    Change to the directory where these three files are and run TEST.BAT.
+    This will run the server and client perl scripts, so two perl windows
+    will appear.
+    You can now enter stuff into the Client window and watch the output
+    on the Server window. This *should* work accross a network (client on
+    machine A and server on machine B).
+
+GENERAL USE:
+    This extension gives Win32 Perl the ability to use Named Pipes. Why? Well
+    considering that Win32 Perl does not (yet) have the ability to fork() I
+    could not see what good the pipe(X,Y) was. Besides, where I am an admin
+    I must have several perl daemons running on several NT Servers. It dawned
+    on me one day that if I could pipe all these daemons' output to my
+    workstation (accross the net) then it would much easier to monitor. This
+    was the impetus for an extension using Named Pipes. I think that it is
+    kinda cool. :)
+
+    To use this extension you can follow these basic steps:
+    First you need to 'use' the pipe extension:
+
+        use Win32::Pipe;
+
+    Then you need to create a server side of a named pipe:
+
+        $Pipe = new Win32::Pipe("My Pipe Name");
+
+    or if you are going to connect to pipe that has already been created:
+
+        $Pipe = new Win32::Pipe("\\\\server\\pipe\\My Pipe Name");
+
+        NOTE: The "\\\\server\\pipe\\" is necessary when connecting to an
+              existing pipe! If you are accessing the same machine you could
+              use "\\\\.\\pipe\\" but either way works fine.
+
+        NOTE 2: You can open the pipe using traditional filehandles such as:
+            open(PIPE, "+> \\\\server\\pipe\\My Pipe Name");
+            The only problem with this is that you can not use the other
+            Win32::Pipe function to manage this filehandle.
+
+    You should check to see if $Pipe is indeed defined otherwise there has been an
+    error.
+
+    Whichever end is the server, it must now wait for a connection...
+
+        $Result = $Pipe->Connect();
+
+        NOTE: The client end does not do this! When the client creates the pipe
+              it has already connected!
+
+    Now you can read and write data from either end of the pipe:
+
+        $Data = $Pipe->Read();
+
+        $Result = $Pipe->Write("Howdy! This is cool!");
+
+    When the server is finished it must disconnect:
+
+        $Pipe->Disconnect();
+
+    Now the server could Connect() again (and wait for another client) or it could
+    destroy the named pipe...
+
+        $Data->Close();
+
+    The client should Close() in order to properly end the session.
+
+
+NULL PIPES:
+    Let's say that you have a client process that needs to connect to a named
+    pipe on a remote machine. This is easy enough to do unless the client is
+    run by the LocalSystem account. This commonly occurs when a service
+    connects to a named pipe.
+    The reason this fails is because the LocalSystem account does not have
+    any credentials to pass accross the net to the remote named pipe. Since
+    no credentials are passed there is no way to authenticate the LocalSystem
+    (since there are not credentials).
+
+    This can be rectified by adding the named pipe to the list of NULL Sessions.
+    A NULL Session is a named pipe that does not attempt to authenticate
+    connections. Therefore anyone can connect (including remote machine's
+    LocalSystem account) and interact with the pipe.
+    This is done by adding the named pipe to the list found in the Registry
+    key:
+
+    HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\lanmanserver\parameters
+
+    This key contains a value called "NullSessionPipes" of type REG_MULTI_SZ.
+    The data of this value is a list of UNICODE, null terminated strings. The
+    end of the list is terminated by another UNICODE null (so at the end of the
+    data there will be 4 bytes of 0--terminating null for last string and a
+    null terminating character for the entire array.
+
+
+
+    F U N C T I O N S
+    =================
+    BufferSize()
+        Returns the size of the instance of the named pipe's buffer.
+        returns: $BufferSize
+
+    Connect()
+        Tells the named pipe to create an instance of the named pipe and wait
+        until a client connects.
+        returns: TRUE if success
+                 FALSE if failure
+
+    Close()
+        Closes the named pipe.
+
+    Disconnect()
+        Disconnects (and destroys) the instance of the named pipe from the client.
+        returns: TRUE if success
+                 FALSE if failure
+
+    Error()
+        Returns the last error messages pertaining to the named pipe. If used
+        in context to the package.
+        returns: ($ErrorNumber, $ErrorText)
+
+    ImpersonateStart()
+        Only the server side of a pipe can call this.
+        The process will impersonatate the client. This means that the 
+        scripts security permissions will look like the user who opened 
+        the client end of the named pipe. 
+        For example: the BILLY runs a script which opens a named pipe.
+        Then a the user JOEL connects to the pipe. If BILLY's script 
+        then calls ImpersonateStart() then the script will be allowed to 
+        open JOEL's files (as if the script was run by JOEL).
+
+    ImpersonateStop()
+        Stops impersonating the pipes client. Refer to ImpersonateStart().
+
+    new($Name [, $Timeout [, $Type [, $Permissions ] ] )
+        Creates a named pipe if used in server context or a connection to the
+        specified named pipe if used in client context.
+    
+        $Timeout is optional and is the amount of time to wait for the connection. The 
+        time is in milliseconds.
+
+        $Type can be either:
+            PIPE_TYPE_MESSAGE...Data will move across the pipe as a message of a specific size.
+            PIPE_TYPE_BYTE......Data will move across the pipe as a stream of bytes.
+                                Use this type when transfering data that is not always predictable.
+                                This is the default state of a newly created pipe.
+
+        $Permissions is either a Win32::Perms object or a binary Security Descriptor. This will
+        set the permissions on the named pipe. If this parameter is not specified then the
+        pipe will be created with a NULL DACL hence providing FULL CONTROL to Everyone.
+
+        If the $Name starts with a "\\\\" or a "//" then the pipe will be created as 
+        a client and try to connect to the specified server.  Otherwise the pipe will
+        be created as a server.
+
+    
+        returns: TRUE if success
+                 FALSE if failure
+
+    Peek()
+        This will look ahead into the pipe without remove data from the pipe.
+        If nothing is in the pipe then it returns with no data -- there is nothing waiting.
+        If this is successful then the data is returned but not removed hence a call to
+        Read() will return the same data.
+        The number of bytes returned is no greater than the pipes buffer.
+
+        returns: The data from the pipe without removing that
+                 data from the pipe if success
+                 undef if failure
+
+    PeekPipe( $PipeHandle, $Size )
+        Just like Peek() this will return the data in the pipe without removing the
+        data from the pipe except that this is called as a function, not a method.
+        The first parameter is a Win32 Pipe Handle from any pipe (named or anonymous).
+        The second parameter is the limit of how many bytes are returned.
+
+        returns: an array:
+                    element0......Data from the pipe
+                    element1......Number of bytes returned
+                    element2......Number of bytes in the pipe that are not returned (due to buffer size)
+
+
+    PipeGetInfo()
+        Returns an array of data regarding the pipe. The following is returned:
+          1) State of Pipe
+          2) Number of instances the pipe has.
+          3) Name of user connected as the client.
+          4) Max number of bytes collected before the pipe sends the data.
+          5) Max amount of time before data is sent.
+        returns: array if success
+                 nothing if failure
+
+    Read()
+        Reads from the named pipe.
+        returns: data read from the pipe if success
+                 undef if failure
+
+    ResizeBuffer($Size)
+        Sets the instance of the named pipe's buffer to $Size.
+        returns: $BufferSize if success
+                 FALSE if failure
+
+    Transact( $Data )
+        This is the same as TransactNamedPipe() but for a particular pipe object.
+
+
+    TransactNamedPipe( $Pipe, $Data )
+        
+    
+    Write($Data)
+        Writes $Data to the named pipe.
+        returns: TRUE if success
+                 FALSE if failure
+
