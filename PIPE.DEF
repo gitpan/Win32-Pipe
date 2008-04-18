@@ -1,3 +1,0 @@
-LIBRARY Pipe
-EXPORTS
-    boot_Win32__Pipe
